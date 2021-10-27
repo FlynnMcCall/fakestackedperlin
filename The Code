@@ -1,0 +1,88 @@
+// Author:
+// Title:
+
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform float u_time;
+
+const float scale = 18.036;
+const int octaves = 18;
+const float scaleDecay = 1.740;
+const float lacunarity = 1.496;
+
+const bool angularOffset = true;
+const bool stackNoise = true;
+
+vec2 offset = vec2(0.060,-0.270);
+vec2 offv = vec2(0.710,0.020);
+
+float range(){
+    float runSum = 0.0;
+    for (int i = 0; i < octaves; i ++){
+        runSum += pow(scaleDecay, float(-i));
+    }
+    return runSum;   
+}
+
+float rand(vec2 st){
+    return fract(sin(dot(st.xy,
+                         vec2(12.9898,78.233)))
+                 * 43758.5453123);
+}
+
+float evalNo(vec2 st, float scale){
+    vec2 i = floor(st * scale);
+	vec2 fPos = fract(st * scale);
+    
+    float a = rand(i + vec2(0, 0));
+    float b = rand(i + vec2(1, 0));
+    float c = rand(i + vec2(0, 1));
+    float d = rand(i + vec2(1, 1));
+    
+    vec2 u = smoothstep(0.,1.,fPos);
+    
+    return float(mix(a, b, u.x) +
+            (c - a)* u.y * (1.0 - u.x) +
+            (d - b) * u.x * u.y);
+}
+
+float genNoise(vec2 st){
+    float hpo = 1.57079632679/float(octaves);
+ 	// half Pi/ Octaves 
+    
+    float theta = 0.0;
+    vec2 rotst = vec2(0.0);
+    float preval = 0.0;
+    for(int i = 0; i < octaves; i ++){
+        if (angularOffset){
+            theta = hpo*float(i);
+            rotst.x = (st.x * sin(theta) + st.y* cos(theta) );
+            rotst.y = (st.y * sin(theta) - st.x* cos(theta) );
+            preval += evalNo(rotst, scale * pow(scaleDecay, float(i)))/pow(lacunarity, float(i));
+        }else{
+        	preval += evalNo(st, scale * pow(scaleDecay, float(i)))/pow(lacunarity, float(i));
+        }
+    }
+    
+    
+    return preval/range();
+}
+
+
+void main() {
+    
+    vec2 st = gl_FragCoord.xy/u_resolution.xy;
+    st += offset;
+    float final =0.0;
+    if(stackNoise){
+        final = genNoise(st + offv*genNoise(st));
+    }else{
+        final = genNoise(st);
+    }
+
+    gl_FragColor = vec4(vec3(final),1);
+}
